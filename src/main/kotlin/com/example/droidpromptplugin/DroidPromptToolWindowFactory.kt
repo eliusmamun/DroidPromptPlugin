@@ -36,16 +36,18 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         val askButton = JButton("Ask DroidPrompt")
 
+        val placeHolderText = "Ask anything?"
+
         // Input area with placeholder
         val inputArea = JTextArea(3, 60).apply {
-            text = "Ask anything?"
+            text = placeHolderText
             foreground = Color.GRAY
             lineWrap = true
             wrapStyleWord = true
 
             addFocusListener(object : FocusAdapter() {
                 override fun focusGained(e: FocusEvent?) {
-                    if (text == "Ask anything?") {
+                    if (text == placeHolderText) {
                         text = ""
                         foreground = Color.WHITE
                     }
@@ -53,7 +55,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
                 override fun focusLost(e: FocusEvent?) {
                     if (text.isBlank()) {
-                        text = "Ask anything?"
+                        text = placeHolderText
                         foreground = Color.GRAY
                     }
                 }
@@ -83,6 +85,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         askButton.addActionListener {
             val inputText = inputArea.text.trim()
+            if(inputText == placeHolderText) return@addActionListener
             if (inputText.isNotEmpty()) {
                 inputArea.text = ""
 
