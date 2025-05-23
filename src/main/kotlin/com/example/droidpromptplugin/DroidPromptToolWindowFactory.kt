@@ -15,6 +15,11 @@ import java.awt.event.FocusEvent
 import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
 import javax.swing.text.StyleConstants
+import javax.swing.text.StyledDocument
+import com.intellij.openapi.editor.event.SelectionListener
+import com.intellij.openapi.editor.event.SelectionEvent
+import com.intellij.openapi.editor.EditorFactory
+import java.util.concurrent.atomic.AtomicReference
 
 
 class DroidPromptToolWindowFactory : ToolWindowFactory {
@@ -83,6 +88,16 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             preferredSize = Dimension(600, 80)  // 🔽 reduce height
         }
 
+
+        val uploadButton = JButton("Upload Files").apply {
+            addActionListener {
+                val fileContents = PromptContextProvider.getUploadedFilesContent(project, mainPanel)
+                val doc = conversationArea.document as StyledDocument
+                doc.insertString(doc.length, "\n\n📎 Uploaded Files:\n$fileContents", null)
+                conversationArea.caretPosition = conversationArea.document.length
+            }
+        }
+
         askButton.addActionListener {
             val inputText = inputArea.text.trim()
             if(inputText == placeHolderText) return@addActionListener
@@ -112,14 +127,27 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 }
                 conversationArea.caretPosition = doc.length
 
+                val context = PromptContextProvider.getSelectedText(project)
+                 println("Elius - context = ${context}")
+
 
             }
         }
 
 
+        addSelectionListener(project)
+
+
         val inputPanel = JPanel(BorderLayout()).apply {
+            val buttonPanel = JPanel().apply {
+                layout = BoxLayout(this, BoxLayout.X_AXIS)
+                add(askButton)
+                add(Box.createRigidArea(Dimension(10, 0)))
+                add(uploadButton)
+            }
+
             add(inputScroll, BorderLayout.CENTER)
-            add(askButton, BorderLayout.EAST)
+            add(buttonPanel, BorderLayout.EAST)
         }
 
         mainPanel.add(conversationScroll, BorderLayout.CENTER)
@@ -128,6 +156,31 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(mainPanel, "", false)
         toolWindow.contentManager.addContent(content)
+    }
+
+    fun addSelectionListener(project: Project) {
+        val debounceJob = AtomicReference<Job?>()
+
+        val editorFactory = EditorFactory.getInstance()
+        val listener = object : SelectionListener {
+            override fun selectionChanged(e: SelectionEvent) {
+                debounceJob.get()?.cancel()
+                debounceJob.set(
+                    CoroutineScope(Dispatchers.Default).launch {
+                        delay(300) // debounce delay
+                        val selectedText = e.editor.selectionModel.selectedText
+                        if (!selectedText.isNullOrBlank()) {
+                            println("✅ Final selected text: $selectedText")
+                            // Do something meaningful here
+                        }else {
+                            println("ℹ️ No text selected")
+                        }
+                    }
+                )
+            }
+        }
+
+        editorFactory.eventMulticaster.addSelectionListener(listener, project)
     }
 
 
