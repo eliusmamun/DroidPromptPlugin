@@ -39,8 +39,8 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             preferredSize = Dimension(600, 200)  // 🔽 reduce height here (was 300)
         }
 
-        val askButton = JButton("Ask DroidPrompt")
 
+        val askButton = JButton("Ask DroidPrompt")
         val placeHolderText = "Ask anything?"
 
         // Input area with placeholder
@@ -89,14 +89,67 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
         }
 
 
-        val uploadButton = JButton("Upload Files").apply {
-            addActionListener {
-                val fileContents = PromptContextProvider.getUploadedFilesContent(project, mainPanel)
-                val doc = conversationArea.document as StyledDocument
-                doc.insertString(doc.length, "\n\n📎 Uploaded Files:\n$fileContents", null)
-                conversationArea.caretPosition = conversationArea.document.length
+// Panel to hold checkboxes for uploaded files
+        val uploadedFilesPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        }
+
+        val uploadButton = JButton("Upload Files")
+        val deleteFileButton = JButton("Delete Files")
+
+        val uploadedFilesHeader = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+           // add(JLabel("Uploaded Files:"))
+            add(uploadButton)
+            add(deleteFileButton)
+        }
+
+// Container panel for the whole file upload section
+        val uploadedFilesContainer = JPanel(BorderLayout()).apply {
+            border = BorderFactory.createEtchedBorder()
+            preferredSize = Dimension(600, 120)
+            add(uploadedFilesHeader, BorderLayout.NORTH)
+            add(JScrollPane(uploadedFilesPanel), BorderLayout.CENTER)
+        }
+
+        fun refreshUploadedFilesList() {
+            uploadedFilesPanel.removeAll()
+            PromptContextProvider.getUploadedFiles().forEach { (file, pair) ->
+                uploadedFilesPanel.add(pair.second)
+            }
+            uploadedFilesPanel.revalidate()
+            uploadedFilesPanel.repaint()
+        }
+
+
+        uploadButton.addActionListener {
+
+            val fileChooser = JFileChooser().apply {
+                fileSelectionMode = JFileChooser.FILES_ONLY
+                isMultiSelectionEnabled = true
+                project.basePath?.let { basePath ->
+                    currentDirectory = java.io.File(basePath)
+                }
+            }
+
+            val result = fileChooser.showOpenDialog(mainPanel)
+            if (result == JFileChooser.APPROVE_OPTION) {
+                val selectedFiles = fileChooser.selectedFiles.toList()
+                PromptContextProvider.addFiles(selectedFiles)
+                refreshUploadedFilesList()
             }
         }
+
+        deleteFileButton.addActionListener {
+            val filesToRemove = PromptContextProvider.getUploadedFiles()
+                .filter { it.value.second.isSelected }
+                .map { it.key }
+
+            if (filesToRemove.isNotEmpty()) {
+                filesToRemove.forEach { PromptContextProvider.removeFile(it) }
+                refreshUploadedFilesList()
+            }
+        }
+
 
         askButton.addActionListener {
             val inputText = inputArea.text.trim()
@@ -127,35 +180,49 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 }
                 conversationArea.caretPosition = doc.length
 
+                val selectedFile = PromptContextProvider.getSelectedText(project)
+                 println("Elius - context = ${selectedFile}")
+
                 val context = PromptContextProvider.getSelectedText(project)
-                 println("Elius - context = ${context}")
+                val selectedFilesContent = PromptContextProvider.getSelectedFilesContent()
+                println("🔍 Context from editor: $context")
+                println("📎 Selected files content:\n$selectedFilesContent")
 
 
             }
         }
-
 
         addSelectionListener(project)
 
+        refreshUploadedFilesList()
+
+        /*val buttonPanel = JPanel().apply {
+            layout = BoxLayout(this, BoxLayout.X_AXIS)
+            add(askButton)
+            add(Box.createRigidArea(Dimension(10, 0)))
+            add(uploadButton)
+            add(Box.createRigidArea(Dimension(10, 0)))
+            add(deleteFileButton)
+        }*/
 
         val inputPanel = JPanel(BorderLayout()).apply {
-            val buttonPanel = JPanel().apply {
-                layout = BoxLayout(this, BoxLayout.X_AXIS)
-                add(askButton)
-                add(Box.createRigidArea(Dimension(10, 0)))
-                add(uploadButton)
-            }
-
             add(inputScroll, BorderLayout.CENTER)
-            add(buttonPanel, BorderLayout.EAST)
+            add(askButton, BorderLayout.EAST) // Only keep Ask button here
+        }
+
+        val bottomPanel = JPanel(BorderLayout()).apply {
+            add(inputPanel, BorderLayout.NORTH)
+            add(uploadedFilesContainer, BorderLayout.CENTER)
         }
 
         mainPanel.add(conversationScroll, BorderLayout.CENTER)
-        mainPanel.add(inputPanel, BorderLayout.SOUTH)
+        mainPanel.add(bottomPanel, BorderLayout.SOUTH)
 
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(mainPanel, "", false)
+        toolWindow.contentManager.removeAllContents(true) // 💡 ensures clean rebuild
         toolWindow.contentManager.addContent(content)
+
     }
 
     fun addSelectionListener(project: Project) {

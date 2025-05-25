@@ -2,47 +2,44 @@ package com.example.droidpromptplugin
 
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
+import java.io.File
+import javax.swing.JCheckBox
 import javax.swing.JFileChooser
 import javax.swing.JPanel
-import javax.swing.text.StyledDocument
 
 object PromptContextProvider {
 
-
-    fun getSelectedText(project: Project): String? {
+   fun getSelectedText(project: Project): String? {
         val editor = FileEditorManager.getInstance(project).selectedTextEditor
         return editor?.selectionModel?.selectedText
     }
 
-    private fun getFullFileContent(project: Project): String? {
-        val virtualFile = FileEditorManager.getInstance(project).selectedFiles.firstOrNull()
-        return virtualFile?.contentsToByteArray()?.toString(Charsets.UTF_8)
+
+    private val uploadedFileMap = linkedMapOf<File, Pair<String, JCheckBox>>()  // File -> (Content, Checkbox)
+
+    fun getUploadedFiles(): Map<File, Pair<String, JCheckBox>> = uploadedFileMap.toMap()
+
+    fun addFiles(files: List<File>) {
+        files.forEach { file ->
+            val content = try {
+                file.readText()
+            } catch (e: Exception) {
+                "❗ Error reading ${file.name}: ${e.message}"
+            }
+            val checkBox = JCheckBox(file.name, true)
+            uploadedFileMap[file] = Pair(content, checkBox)
+        }
     }
 
-    fun getUploadedFilesContent(project: Project, mainPanel: JPanel): String? {
-        val fileChooser = JFileChooser().apply {
-            fileSelectionMode = JFileChooser.FILES_ONLY
-            isMultiSelectionEnabled = true
-            // ✅ Set the current directory to the opened project's base path
-            project.basePath?.let { base ->
-                currentDirectory = java.io.File(base)
-            }
-        }
-        val returnValue = fileChooser.showOpenDialog(mainPanel)
-        if (returnValue == JFileChooser.APPROVE_OPTION) {
-            val selectedFiles = fileChooser.selectedFiles
-            val fileContents = selectedFiles.joinToString("\n\n") { file ->
-                try {
-                    val content = file.readText()
-                    "\uD83D\uDCC4 ${file.name}:\n$content"
-                } catch (e: Exception) {
-                    "\uD83D\uDEA9 Error reading ${file.name}"
-                }
-            }
-
-            return fileContents
-
-        }
-        return null
+    fun removeFile(file: File) {
+        uploadedFileMap.remove(file)
     }
+
+    fun getSelectedFilesContent(): String {
+        return uploadedFileMap.filter { it.value.second.isSelected }
+            .entries.joinToString("\n\n") { (file, pair) ->
+                "\uD83D\uDCC4 ${file.name}:\n${pair.first}"
+            }
+    }
+
 }
