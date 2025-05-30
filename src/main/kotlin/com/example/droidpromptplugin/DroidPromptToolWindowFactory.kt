@@ -20,6 +20,7 @@ import javax.swing.text.StyledDocument
 import com.intellij.openapi.editor.event.SelectionListener
 import com.intellij.openapi.editor.event.SelectionEvent
 import com.intellij.openapi.editor.EditorFactory
+import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 
@@ -124,20 +125,30 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         uploadButton.addActionListener {
 
-            val fileChooser = JFileChooser().apply {
-                fileSelectionMode = JFileChooser.FILES_ONLY
-                isMultiSelectionEnabled = true
-                project.basePath?.let { basePath ->
-                    currentDirectory = java.io.File(basePath)
+            OpenFilesDialog(project) { selectedFiles ->
+                val filesToAdd = selectedFiles.mapNotNull { vf ->
+                    val ioFile = File(vf.path)
+                    if (ioFile.exists()) ioFile else null
                 }
-            }
-
-            val result = fileChooser.showOpenDialog(mainPanel)
-            if (result == JFileChooser.APPROVE_OPTION) {
-                val selectedFiles = fileChooser.selectedFiles.toList()
-                PromptContextProvider.addFiles(selectedFiles)
+                PromptContextProvider.addFiles(filesToAdd)
                 refreshUploadedFilesList()
-            }
+            }.isVisible = true
+
+
+            /*   val fileChooser = JFileChooser().apply {
+                   fileSelectionMode = JFileChooser.FILES_ONLY
+                   isMultiSelectionEnabled = true
+                   project.basePath?.let { basePath ->
+                       currentDirectory = java.io.File(basePath)
+                   }
+               }
+
+               val result = fileChooser.showOpenDialog(mainPanel)
+               if (result == JFileChooser.APPROVE_OPTION) {
+                   val selectedFiles = fileChooser.selectedFiles.toList()
+                   PromptContextProvider.addFiles(selectedFiles)
+                   refreshUploadedFilesList()
+               }*/
         }
 
         deleteFileButton.addActionListener {
@@ -187,7 +198,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 val selectedFiles = PromptContextProvider.getSelectedFiles()
 
                 val prompt = PromptBuilder.buildGeminiPrompt(selectedFiles, selectedText, userQuestion = inputText)
-                
+
 
             }
         }
