@@ -19,6 +19,9 @@ object PromptContextProvider {
 
     fun getUploadedFiles(): Map<File, Pair<String, JCheckBox>> = uploadedFileMap.toMap()
 
+    fun getSelectedFiles(): Map<File, Pair<String, JCheckBox>> = uploadedFileMap.filter { it.value.second.isSelected }.toMap()
+
+
     fun addFiles(files: List<File>) {
         files.forEach { file ->
             val content = try {

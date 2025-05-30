@@ -1,5 +1,6 @@
 package com.example.droidpromptplugin
 
+import com.example.droidpromptplugin.api.UserRepo
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -31,7 +32,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             isEditable = false
             contentType = "text/plain"
             background = Color.DARK_GRAY
-            foreground = Color.WHITE
+             foreground = Color.WHITE
         }
 
 
@@ -180,14 +181,13 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 }
                 conversationArea.caretPosition = doc.length
 
-                val selectedFile = PromptContextProvider.getSelectedText(project)
-                 println("Elius - context = ${selectedFile}")
+                val selectedText = PromptContextProvider.getSelectedText(project)
+                 println("Elius - Selected Text = ${selectedText}")
 
-                val context = PromptContextProvider.getSelectedText(project)
-                val selectedFilesContent = PromptContextProvider.getSelectedFilesContent()
-                println("🔍 Context from editor: $context")
-                println("📎 Selected files content:\n$selectedFilesContent")
+                val selectedFiles = PromptContextProvider.getSelectedFiles()
 
+                val prompt = PromptBuilder.buildGeminiPrompt(selectedFiles, selectedText, userQuestion = inputText)
+                
 
             }
         }
@@ -195,15 +195,6 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
         addSelectionListener(project)
 
         refreshUploadedFilesList()
-
-        /*val buttonPanel = JPanel().apply {
-            layout = BoxLayout(this, BoxLayout.X_AXIS)
-            add(askButton)
-            add(Box.createRigidArea(Dimension(10, 0)))
-            add(uploadButton)
-            add(Box.createRigidArea(Dimension(10, 0)))
-            add(deleteFileButton)
-        }*/
 
         val inputPanel = JPanel(BorderLayout()).apply {
             add(inputScroll, BorderLayout.CENTER)
@@ -225,7 +216,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
     }
 
-    fun addSelectionListener(project: Project) {
+    private fun addSelectionListener(project: Project) {
         val debounceJob = AtomicReference<Job?>()
 
         val editorFactory = EditorFactory.getInstance()
