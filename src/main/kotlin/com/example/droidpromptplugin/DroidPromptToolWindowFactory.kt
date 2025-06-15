@@ -1,6 +1,5 @@
 package com.example.droidpromptplugin
 
-import com.example.droidpromptplugin.api.UserRepo
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -16,7 +15,6 @@ import java.awt.event.FocusEvent
 import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
 import javax.swing.text.StyleConstants
-import javax.swing.text.StyledDocument
 import com.intellij.openapi.editor.event.SelectionListener
 import com.intellij.openapi.editor.event.SelectionEvent
 import com.intellij.openapi.editor.EditorFactory
