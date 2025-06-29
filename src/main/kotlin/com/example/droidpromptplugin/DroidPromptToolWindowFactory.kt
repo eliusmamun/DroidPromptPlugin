@@ -97,10 +97,16 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
         val uploadButton = JButton("Upload Files")
         val deleteFileButton = JButton("Delete Files")
 
+        val addSearchApiCheckbox = JCheckBox("Add search API").apply {
+            isSelected = false
+            foreground = Color.WHITE
+            background = UIManager.getColor("Panel.background") // optional for dark theme
+        }
+
         val uploadedFilesHeader = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-           // add(JLabel("Uploaded Files:"))
             add(uploadButton)
             add(deleteFileButton)
+            add(addSearchApiCheckbox) // ✅ new checkbox added
         }
 
 // Container panel for the whole file upload section
@@ -197,7 +203,12 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
                 val prompt = PromptBuilder.buildGeminiPrompt(selectedFiles, selectedText, userQuestion = inputText)
 
-
+                if (addSearchApiCheckbox.isSelected) {
+                    println("✅ Search API checkbox is selected. Perform search-related logic here.")
+                    // 🔁 Later, replace this with real logic
+                } else {
+                    println("ℹ️ Search API checkbox not selected. Proceed with normal flow.")
+                }
             }
         }
 
