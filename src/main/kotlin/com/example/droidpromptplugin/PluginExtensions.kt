@@ -5,4 +5,5 @@ fun String.sanitize(): String {
         .replace("\u0000", "") // Remove null characters
         .replace("\\", "\\\\") // Escape backslashes
         .replace("\"", "\\\"") // Escape quotes
+        .replace(Regex("""\bcom\.example\.?"""), "")
 }
