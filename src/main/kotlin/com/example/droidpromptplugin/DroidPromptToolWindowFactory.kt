@@ -96,6 +96,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         val uploadButton = JButton("Upload Files")
         val deleteFileButton = JButton("Delete Files")
+        val uploadImageButton = JButton("📷 Upload Image")
 
         val addSearchApiCheckbox = JCheckBox("Add search API").apply {
             isSelected = false
@@ -107,6 +108,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             add(uploadButton)
             add(deleteFileButton)
             add(addSearchApiCheckbox) // ✅ new checkbox added
+            add(uploadImageButton) // ✅ Image Upload button added
         }
 
 // Container panel for the whole file upload section
@@ -163,6 +165,31 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             if (filesToRemove.isNotEmpty()) {
                 filesToRemove.forEach { PromptContextProvider.removeFile(it) }
                 refreshUploadedFilesList()
+            }
+        }
+
+        uploadImageButton.addActionListener {
+            val fileChooser = JFileChooser().apply {
+                fileSelectionMode = JFileChooser.FILES_ONLY
+                isMultiSelectionEnabled = false
+                fileFilter = javax.swing.filechooser.FileNameExtensionFilter(
+                    "Image Files", "jpg", "jpeg", "png"
+                )
+                project.basePath?.let { basePath ->
+                    currentDirectory = File(basePath)
+                }
+            }
+
+            val result = fileChooser.showOpenDialog(mainPanel)
+            if (result == JFileChooser.APPROVE_OPTION) {
+                val selectedImage = fileChooser.selectedFile
+                val base64String = ImageBase64Util.encodeImageToBase64(selectedImage)
+                if (base64String != null) {
+                    println("✅ Base64 string of image:\n$base64String")
+                    // 🔁 Store or use it in your prompt logic if needed
+                } else {
+                    JOptionPane.showMessageDialog(mainPanel, "Failed to encode image.", "Error", JOptionPane.ERROR_MESSAGE)
+                }
             }
         }
 
