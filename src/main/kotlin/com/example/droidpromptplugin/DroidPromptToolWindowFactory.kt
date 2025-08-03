@@ -1,49 +1,41 @@
 package com.example.droidpromptplugin
 
+import com.example.droidpromptplugin.modelselector.ModelSelector
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
-import java.awt.event.KeyEvent
 import kotlinx.coroutines.*
-import java.awt.BorderLayout
-import java.awt.Dimension
-import javax.swing.*
 import java.awt.*
-import java.awt.event.FocusAdapter
-import java.awt.event.FocusEvent
-import java.awt.event.ActionEvent
-import java.awt.event.InputEvent
+import java.awt.event.*
+import java.io.File
+import java.util.concurrent.atomic.AtomicReference
+import javax.swing.*
 import javax.swing.text.StyleConstants
 import com.intellij.openapi.editor.event.SelectionListener
 import com.intellij.openapi.editor.event.SelectionEvent
 import com.intellij.openapi.editor.EditorFactory
-import java.io.File
-import java.util.concurrent.atomic.AtomicReference
-
 
 class DroidPromptToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val mainPanel = JPanel(BorderLayout())
 
-        // Output area for conversation history
+        // 🔹 Conversation output area
         val conversationArea = JTextPane().apply {
             isEditable = false
             contentType = "text/plain"
             background = Color.DARK_GRAY
-             foreground = Color.WHITE
+            foreground = Color.WHITE
         }
-
 
         val conversationScroll = JScrollPane(conversationArea).apply {
-            preferredSize = Dimension(600, 200)  // 🔽 reduce height here (was 300)
+            preferredSize = Dimension(600, 200)
         }
-
 
         val askButton = JButton("Ask DroidPrompt")
         val placeHolderText = "Ask anything?"
 
-        // Input area with placeholder
+        // 🔹 Input text area
         val inputArea = JTextArea(3, 60).apply {
             text = placeHolderText
             foreground = Color.GRAY
@@ -66,30 +58,23 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 }
             })
 
-            // Bind Enter key to "askAction" (when focused)
-            getInputMap(JComponent.WHEN_FOCUSED).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
-                "askAction"
-            )
-
+            // ↵ Enter to submit
+            getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "askAction")
             actionMap.put("askAction", object : AbstractAction() {
                 override fun actionPerformed(e: ActionEvent?) {
                     askButton.doClick()
                 }
             })
 
-            // Optional: Bind Shift+Enter to newline explicitly
-            getInputMap(JComponent.WHEN_FOCUSED).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK),
-                "insert-break"
-            )
+            // ⇧+↵ for newline
+            getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-break")
         }
+
         val inputScroll = JScrollPane(inputArea).apply {
-            preferredSize = Dimension(600, 80)  // 🔽 reduce height
+            preferredSize = Dimension(600, 80)
         }
 
-
-// Panel to hold checkboxes for uploaded files
+        // 🔹 Upload panel
         val uploadedFilesPanel = JPanel().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
         }
@@ -98,20 +83,34 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
         val deleteFileButton = JButton("Delete Files")
         val uploadImageButton = JButton("📷 Upload Image")
 
+        // 🔹 Checkboxes & dropdown panel
         val addSearchApiCheckbox = JCheckBox("Add search API").apply {
-            isSelected = false
+            isSelected = true
             foreground = Color.WHITE
-            background = UIManager.getColor("Panel.background") // optional for dark theme
+            background = UIManager.getColor("Panel.background")
         }
 
+        val checkboxAndDropdownPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        checkboxAndDropdownPanel.add(addSearchApiCheckbox)
+
+        val modelList = listOf("Gemini-1.5", "GPT-4", "Claude 3", "Llama 3", "Mistral 7B")
+        var selectedModel: String? = null
+
+        val modelSelector = ModelSelector(modelList) { selected ->
+            selectedModel = selected
+            println("✅ Selected LLM model: $selected")
+        }
+
+        checkboxAndDropdownPanel.add(modelSelector.panel)
+
+        // 🔹 File upload UI
         val uploadedFilesHeader = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
             add(uploadButton)
             add(deleteFileButton)
-            add(addSearchApiCheckbox) // ✅ new checkbox added
-            add(uploadImageButton) // ✅ Image Upload button added
+            add(checkboxAndDropdownPanel)
+            add(uploadImageButton)
         }
 
-// Container panel for the whole file upload section
         val uploadedFilesContainer = JPanel(BorderLayout()).apply {
             border = BorderFactory.createEtchedBorder()
             preferredSize = Dimension(600, 120)
@@ -121,16 +120,15 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         fun refreshUploadedFilesList() {
             uploadedFilesPanel.removeAll()
-            PromptContextProvider.getUploadedFiles().forEach { (file, pair) ->
+            PromptContextProvider.getUploadedFiles().forEach { (_, pair) ->
                 uploadedFilesPanel.add(pair.second)
             }
             uploadedFilesPanel.revalidate()
             uploadedFilesPanel.repaint()
         }
 
-
+        // 🔹 File upload logic
         uploadButton.addActionListener {
-
             OpenFilesDialog(project) { selectedFiles ->
                 val filesToAdd = selectedFiles.mapNotNull { vf ->
                     val ioFile = File(vf.path)
@@ -139,24 +137,9 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 PromptContextProvider.addFiles(filesToAdd)
                 refreshUploadedFilesList()
             }.isVisible = true
-
-
-            /*   val fileChooser = JFileChooser().apply {
-                   fileSelectionMode = JFileChooser.FILES_ONLY
-                   isMultiSelectionEnabled = true
-                   project.basePath?.let { basePath ->
-                       currentDirectory = java.io.File(basePath)
-                   }
-               }
-
-               val result = fileChooser.showOpenDialog(mainPanel)
-               if (result == JFileChooser.APPROVE_OPTION) {
-                   val selectedFiles = fileChooser.selectedFiles.toList()
-                   PromptContextProvider.addFiles(selectedFiles)
-                   refreshUploadedFilesList()
-               }*/
         }
 
+        // 🔹 Delete file logic
         deleteFileButton.addActionListener {
             val filesToRemove = PromptContextProvider.getUploadedFiles()
                 .filter { it.value.second.isSelected }
@@ -168,6 +151,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
             }
         }
 
+        // 🔹 Image upload
         uploadImageButton.addActionListener {
             val fileChooser = JFileChooser().apply {
                 fileSelectionMode = JFileChooser.FILES_ONLY
@@ -175,9 +159,7 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 fileFilter = javax.swing.filechooser.FileNameExtensionFilter(
                     "Image Files", "jpg", "jpeg", "png"
                 )
-                project.basePath?.let { basePath ->
-                    currentDirectory = File(basePath)
-                }
+                project.basePath?.let { basePath -> currentDirectory = File(basePath) }
             }
 
             val result = fileChooser.showOpenDialog(mainPanel)
@@ -185,18 +167,17 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                 val selectedImage = fileChooser.selectedFile
                 val base64String = ImageBase64Util.encodeImageToBase64(selectedImage)
                 if (base64String != null) {
-                    println("✅ Base64 string of image:\n$base64String")
-                    // 🔁 Store or use it in your prompt logic if needed
+                    println("✅ Base64 string:\n$base64String")
                 } else {
                     JOptionPane.showMessageDialog(mainPanel, "Failed to encode image.", "Error", JOptionPane.ERROR_MESSAGE)
                 }
             }
         }
 
-
+        // 🔹 Ask button logic
         askButton.addActionListener {
             val inputText = inputArea.text.trim()
-            if(inputText == placeHolderText) return@addActionListener
+            if (inputText == placeHolderText) return@addActionListener
             if (inputText.isNotEmpty()) {
                 inputArea.text = ""
 
@@ -205,47 +186,42 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
                     StyleConstants.setBold(this, true)
                     StyleConstants.setForeground(this, Color.WHITE)
                 }
-
                 val normalStyle = conversationArea.addStyle("NormalStyle", null).apply {
                     StyleConstants.setForeground(this, Color.LIGHT_GRAY)
                 }
+
                 doc.insertString(doc.length, "\n\n🧑You: $inputText", boldStyle)
 
-                val reply =
-                    "Pretend response from Droid prompt: This is a sample response. Real response will appear once the API integration is done"
+                val reply = "Pretend response from Droid prompt: This is a sample response."
                 doc.insertString(doc.length, "\n\n🤖", normalStyle)
-                CoroutineScope(Dispatchers.IO).launch {
-                    reply.forEach { eachChar ->
-                        delay(30)
-                        doc.insertString(doc.length, "$eachChar", normalStyle)
 
+                CoroutineScope(Dispatchers.IO).launch {
+                    reply.forEach { c ->
+                        delay(30)
+                        doc.insertString(doc.length, "$c", normalStyle)
                     }
                 }
+
                 conversationArea.caretPosition = doc.length
 
                 val selectedText = PromptContextProvider.getSelectedText(project)
-                 println("Elius - Selected Text = ${selectedText}")
-
                 val selectedFiles = PromptContextProvider.getSelectedFiles()
-
                 val prompt = PromptBuilder.buildGeminiPrompt(selectedFiles, selectedText, userQuestion = inputText)
 
                 if (addSearchApiCheckbox.isSelected) {
-                    println("✅ Search API checkbox is selected. Perform search-related logic here.")
-                    // 🔁 Later, replace this with real logic
+                    println("🔍 Search API checkbox is selected.")
                 } else {
-                    println("ℹ️ Search API checkbox not selected. Proceed with normal flow.")
+                    println("➡️ Normal flow without search API.")
                 }
+
+                println("🧠 Selected model to use: ${selectedModel ?: "None"}")
             }
         }
 
-        addSelectionListener(project)
-
-        refreshUploadedFilesList()
-
+        // 🔹 Input + Upload bottom panel
         val inputPanel = JPanel(BorderLayout()).apply {
             add(inputScroll, BorderLayout.CENTER)
-            add(askButton, BorderLayout.EAST) // Only keep Ask button here
+            add(askButton, BorderLayout.EAST)
         }
 
         val bottomPanel = JPanel(BorderLayout()).apply {
@@ -258,35 +234,30 @@ class DroidPromptToolWindowFactory : ToolWindowFactory {
 
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(mainPanel, "", false)
-        toolWindow.contentManager.removeAllContents(true) // 💡 ensures clean rebuild
+        toolWindow.contentManager.removeAllContents(true)
         toolWindow.contentManager.addContent(content)
 
+        addSelectionListener(project)
+        refreshUploadedFilesList()
     }
 
     private fun addSelectionListener(project: Project) {
         val debounceJob = AtomicReference<Job?>()
-
         val editorFactory = EditorFactory.getInstance()
         val listener = object : SelectionListener {
             override fun selectionChanged(e: SelectionEvent) {
                 debounceJob.get()?.cancel()
-                debounceJob.set(
-                    CoroutineScope(Dispatchers.Default).launch {
-                        delay(300) // debounce delay
-                        val selectedText = e.editor.selectionModel.selectedText
-                        if (!selectedText.isNullOrBlank()) {
-                            println("✅ Final selected text: $selectedText")
-                            // Do something meaningful here
-                        }else {
-                            println("ℹ️ No text selected")
-                        }
+                debounceJob.set(CoroutineScope(Dispatchers.Default).launch {
+                    delay(300)
+                    val selectedText = e.editor.selectionModel.selectedText
+                    if (!selectedText.isNullOrBlank()) {
+                        println("✅ Final selected text: $selectedText")
+                    } else {
+                        println("ℹ️ No text selected")
                     }
-                )
+                })
             }
         }
-
         editorFactory.eventMulticaster.addSelectionListener(listener, project)
     }
-
-
 }
